@@ -1,36 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { hierarchy, treemap, treemapSquarify } from "d3-hierarchy";
 import { FileNode } from "./types";
-import { formatSize } from "./utils";
-
-const EXT_IMAGE = new Set(["jpg","jpeg","png","gif","svg","webp","ico","bmp","avif","heic","tiff"]);
-const EXT_VIDEO = new Set(["mp4","mov","avi","mkv","wmv","flv","webm","m4v","mpg"]);
-const EXT_AUDIO = new Set(["mp3","wav","flac","aac","ogg","m4a","opus","wma"]);
-const EXT_CODE  = new Set(["ts","tsx","js","jsx","py","rs","go","java","cpp","c","h","cs","rb","php","swift","kt","html","css","scss","json","yaml","yml","toml","xml","sh","bash"]);
-const EXT_DOC   = new Set(["pdf","doc","docx","txt","md","rtf","xls","xlsx","ppt","pptx","csv","epub"]);
-const EXT_ARC   = new Set(["zip","tar","gz","rar","7z","bz2","xz","dmg","iso","pkg","deb","rpm"]);
-
-function getCategory(node: FileNode): string {
-  if (node.is_dir) return "directory";
-  const ext = node.name.split(".").pop()?.toLowerCase() ?? "";
-  if (EXT_IMAGE.has(ext)) return "image";
-  if (EXT_VIDEO.has(ext)) return "video";
-  if (EXT_AUDIO.has(ext)) return "audio";
-  if (EXT_CODE.has(ext))  return "code";
-  if (EXT_DOC.has(ext))   return "document";
-  if (EXT_ARC.has(ext))   return "archive";
-  return "other";
-}
-
-const CATEGORY_COLORS: Record<string, string> = {
-  directory: "#2563eb", image: "#d97706", video: "#dc2626", audio: "#ea580c",
-  code: "#7c3aed", document: "#16a34a", archive: "#0d9488", other: "#475569",
-};
-
-const CATEGORY_LABELS: Record<string, string> = {
-  directory: "Folders", image: "Images", video: "Video", audio: "Audio",
-  code: "Code", document: "Documents", archive: "Archives", other: "Other",
-};
+import { formatSize, getFileCategory, CATEGORY_COLORS, CATEGORY_LABELS } from "./utils";
 
 function findNodeByPath(root: FileNode, path: string): FileNode | null {
   if (root.path === path) return root;
@@ -88,7 +59,7 @@ export function TreemapView({ root, selectedPath, onSelect, searchQuery, drillRe
   const filteredChildren = useMemo(() => {
     return currentNode.children
       .filter(c => !searchQuery || c.name.toLowerCase().includes(searchQuery.toLowerCase()))
-      .filter(c => !hiddenCategories.has(getCategory(c)));
+      .filter(c => !hiddenCategories.has(getFileCategory(c)));
   }, [currentNode, searchQuery, hiddenCategories]);
 
   const tiles = useMemo<Tile[]>(() => {
@@ -213,7 +184,7 @@ export function TreemapView({ root, selectedPath, onSelect, searchQuery, drillRe
             {tiles.map(({ fileNode, x0, y0, x1, y1 }) => {
               const w = x1 - x0;
               const h = y1 - y0;
-              const color = CATEGORY_COLORS[getCategory(fileNode)];
+              const color = CATEGORY_COLORS[getFileCategory(fileNode)];
               const isHovered = hoveredPath === fileNode.path;
               const isSelected = selectedPath === fileNode.path;
               const canDrill = fileNode.is_dir && fileNode.children.length > 0;

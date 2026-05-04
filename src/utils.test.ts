@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { filterTree, countLeaves, countNodes } from "./utils";
+import { filterTree, countLeaves, countNodes, collectLargeFiles, computeFileTypes, getFileCategory, computeCategoryBreakdown } from "./utils";
 import { FileNode } from "./types";
 
 function makeFile(name: string, size = 100): FileNode {
@@ -80,5 +80,84 @@ describe("countNodes", () => {
   it("counts a directory and its children", () => {
     const dir = makeDir("root", [makeFile("a.txt"), makeFile("b.txt")]);
     expect(countNodes(dir)).toBe(3); // root + 2 files
+  });
+});
+
+describe("getFileCategory", () => {
+  it("returns 'image' for jpg", () => {
+    expect(getFileCategory(makeFile("photo.jpg"))).toBe("image");
+  });
+  it("returns 'code' for ts", () => {
+    expect(getFileCategory(makeFile("index.ts"))).toBe("code");
+  });
+  it("returns 'other' for unknown extension", () => {
+    expect(getFileCategory(makeFile("mystery.xyzabc"))).toBe("other");
+  });
+  it("returns 'directory' for a dir", () => {
+    expect(getFileCategory(makeDir("src", []))).toBe("directory");
+  });
+});
+
+describe("collectLargeFiles", () => {
+  it("returns files above the threshold sorted by size descending", () => {
+    const root = makeDir("root", [
+      makeFile("big.dmg", 500_000_000),
+      makeFile("tiny.txt", 1000),
+      makeFile("medium.zip", 200_000_000),
+    ], 701_001_000);
+    const result = collectLargeFiles(root, 100_000_000);
+    expect(result).toHaveLength(2);
+    expect(result[0].name).toBe("big.dmg");
+    expect(result[1].name).toBe("medium.zip");
+  });
+
+  it("does not include directories", () => {
+    const sub = makeDir("node_modules", [makeFile("pkg.js", 100)], 8_000_000_000);
+    const root = makeDir("root", [sub], 8_000_000_000);
+    const result = collectLargeFiles(root, 1_000_000);
+    expect(result.every(n => !n.is_dir)).toBe(true);
+  });
+
+  it("returns empty array when nothing meets threshold", () => {
+    const root = makeDir("root", [makeFile("a.txt", 100)], 100);
+    expect(collectLargeFiles(root, 1_000_000)).toHaveLength(0);
+  });
+});
+
+describe("computeFileTypes", () => {
+  it("groups files by extension and sums sizes", () => {
+    const root = makeDir("root", [
+      makeFile("a.ts", 1000),
+      makeFile("b.ts", 2000),
+      makeFile("c.jpg", 5000),
+    ], 8000);
+    const stats = computeFileTypes(root);
+    const tsEntry = stats.find(s => s.extension === "ts");
+    expect(tsEntry).toBeDefined();
+    expect(tsEntry!.totalSize).toBe(3000);
+    expect(tsEntry!.count).toBe(2);
+  });
+
+  it("sorts by totalSize descending", () => {
+    const root = makeDir("root", [
+      makeFile("a.ts", 100),
+      makeFile("big.dmg", 99999),
+    ], 100099);
+    const stats = computeFileTypes(root);
+    expect(stats[0].extension).toBe("dmg");
+  });
+});
+
+describe("computeCategoryBreakdown", () => {
+  it("returns one entry per category that has files", () => {
+    const root = makeDir("root", [
+      makeFile("a.ts", 1000),
+      makeFile("b.jpg", 2000),
+    ], 3000);
+    const breakdown = computeCategoryBreakdown(root);
+    const cats = breakdown.map(b => b.category);
+    expect(cats).toContain("code");
+    expect(cats).toContain("image");
+    expect(breakdown.every(b => b.size > 0)).toBe(true);
   });
 });
