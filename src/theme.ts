@@ -14,7 +14,11 @@ export function applyTheme(theme: Theme): void {
 }
 
 export function storeTheme(theme: Theme): void {
-  localStorage.setItem(STORAGE_KEY, theme);
+  try {
+    localStorage.setItem(STORAGE_KEY, theme);
+  } catch {
+    // Fails gracefully in private/incognito mode
+  }
 }
 
 export function toggleTheme(current: Theme): Theme {
