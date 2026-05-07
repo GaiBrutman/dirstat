@@ -22,9 +22,10 @@ interface TreemapViewProps {
   drillRequest: string | null;
   onDrillRequestHandled: () => void;
   onContextMenu: (e: React.MouseEvent, node: FileNode) => void;
+  backRequest?: number;
 }
 
-export function TreemapView({ root, selectedPath, onSelect, searchQuery, drillRequest, onDrillRequestHandled, onContextMenu }: TreemapViewProps) {
+export function TreemapView({ root, selectedPath, onSelect, searchQuery, drillRequest, onDrillRequestHandled, onContextMenu, backRequest = 0 }: TreemapViewProps) {
   const [navPath, setNavPath] = useState<FileNode[]>([root]);
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   const [hoveredPath, setHoveredPath] = useState<string | null>(null);
@@ -103,6 +104,13 @@ export function TreemapView({ root, selectedPath, onSelect, searchQuery, drillRe
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drillRequest]);
 
+  // Handle backRequest: navigate up one level
+  useEffect(() => {
+    if (backRequest === 0) return;
+    if (navPath.length > 1) navigateTo(navPath.length - 2);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [backRequest]);
+
   // Click timer to distinguish single vs double click
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -123,21 +131,21 @@ export function TreemapView({ root, selectedPath, onSelect, searchQuery, drillRe
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "10px", flex: 1, minHeight: 0 }}>
-      <style>{`.tm-crumb:hover { background: rgba(255,255,255,0.07) !important; color: #f9fafb !important; }`}</style>
+      <style>{`.tm-crumb:hover { background: var(--surface2) !important; color: var(--text) !important; }`}</style>
 
       <nav style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "2px", flexShrink: 0 }}>
         {navPath.map((node, i) => {
           const isLast = i === navPath.length - 1;
           return (
             <span key={node.path + i} style={{ display: "flex", alignItems: "center" }}>
-              {i > 0 && <span style={{ color: "#4b5563", margin: "0 4px", userSelect: "none" }}>›</span>}
+              {i > 0 && <span style={{ color: "var(--text3)", margin: "0 4px", userSelect: "none" }}>›</span>}
               <button
                 onClick={() => navigateTo(i)}
                 className={isLast ? undefined : "tm-crumb"}
                 style={{
                   padding: "3px 8px", borderRadius: "6px", border: "none",
                   background: isLast ? "rgba(255,255,255,0.08)" : "transparent",
-                  color: isLast ? "#f9fafb" : "#9ca3af",
+                  color: isLast ? "var(--text)" : "var(--text3)",
                   fontSize: "13px", fontWeight: isLast ? 600 : 400,
                   cursor: isLast ? "default" : "pointer",
                   transition: "background 120ms, color 120ms",
@@ -167,8 +175,8 @@ export function TreemapView({ root, selectedPath, onSelect, searchQuery, drillRe
           minHeight: "300px",
           borderRadius: "10px",
           overflow: "hidden",
-          background: "#020617",
-          border: "1px solid rgba(255,255,255,0.06)",
+          background: "var(--bg)",
+          border: "1px solid var(--border)",
         }}
       >
         {size && (
@@ -278,7 +286,7 @@ export function TreemapView({ root, selectedPath, onSelect, searchQuery, drillRe
               style={{
                 display: "flex", alignItems: "center", gap: "6px",
                 fontSize: "11px", cursor: "pointer", userSelect: "none",
-                color: hidden ? "#3f3f46" : "#6b7280",
+                color: hidden ? "var(--text3)" : "var(--text2)",
                 textDecoration: hidden ? "line-through" : "none",
                 transition: "color 120ms",
               }}
@@ -297,7 +305,7 @@ export function TreemapView({ root, selectedPath, onSelect, searchQuery, drillRe
         {hiddenCategories.size > 0 && (
           <span
             onClick={() => setHiddenCategories(new Set())}
-            style={{ marginLeft: "auto", fontSize: "11px", color: "#3b82f6", cursor: "pointer", userSelect: "none" }}
+            style={{ marginLeft: "auto", fontSize: "11px", color: "var(--accent2)", cursor: "pointer", userSelect: "none" }}
           >
             Reset
           </span>

@@ -171,7 +171,7 @@ function NavTabs({
 
 function OverviewPanel({
   result, overviewSubView, selectedPath, onSelect, overviewFilter, searchQuery,
-  onSearchQueryChange, drillRequest, onDrillRequestHandled, onContextMenu,
+  onSearchQueryChange, drillRequest, onDrillRequestHandled, onContextMenu, backRequest,
 }: {
   result: FileNode; overviewSubView: OverviewSubView;
   selectedPath: string | null; onSelect: (p: string | null) => void;
@@ -179,6 +179,7 @@ function OverviewPanel({
   onSearchQueryChange: (q: string) => void;
   drillRequest: string | null; onDrillRequestHandled: () => void;
   onContextMenu: (e: React.MouseEvent, node: FileNode) => void;
+  backRequest: number;
 }) {
   if (overviewSubView === "treemap") {
     return (
@@ -191,6 +192,7 @@ function OverviewPanel({
           drillRequest={drillRequest}
           onDrillRequestHandled={onDrillRequestHandled}
           onContextMenu={onContextMenu}
+          backRequest={backRequest}
         />
       </div>
     );
@@ -270,6 +272,7 @@ export default function App() {
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [inspectorTarget, setInspectorTarget] = useState<InspectorTarget>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; node: FileNode } | null>(null);
+  const [treemapBackRequest, setTreemapBackRequest] = useState(0);
 
   useEffect(() => {
     applyTheme(theme);
@@ -299,6 +302,14 @@ export default function App() {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape" && loading) { invoke("cancel_scan"); return; }
       if (e.key === "Escape") { setTreeSearch(""); setOverviewFilter(""); return; }
+      if (e.key === "Backspace" && activeTab === "overview" && overviewSubView === "treemap") {
+        const target = document.activeElement?.tagName;
+        if (target !== "INPUT" && target !== "TEXTAREA") {
+          e.preventDefault();
+          setTreemapBackRequest(n => n + 1);
+          return;
+        }
+      }
       if ((e.key === "Delete" || (e.metaKey && e.key === "Backspace")) && selectedPath) {
         handleMoveToTrash(); return;
       }
@@ -477,43 +488,48 @@ export default function App() {
             </div>
           )}
 
-          {result && !loading && activeTab === "overview" && (
-            <OverviewPanel
-              result={result}
-              overviewSubView={overviewSubView}
-              selectedPath={selectedPath}
-              onSelect={setSelectedPath}
-              overviewFilter={overviewFilter}
-              searchQuery={treeSearch}
-              onSearchQueryChange={setTreeSearch}
-              drillRequest={drillRequest}
-              onDrillRequestHandled={() => setDrillRequest(null)}
-              onContextMenu={handleContextMenu}
-            />
-          )}
-          {result && !loading && activeTab === "large-files" && (
-            <LargeFilesView
-              root={result}
-              onSelect={(node: FileNode) => setInspectorTarget({ kind: "file", node, root: result })}
-              onOpenInFinder={(p: string) => handleOpenInExplorer(p)}
-              onMoveToTrash={(p: string) => handleMoveToTrash(p)}
-            />
-          )}
-          {activeTab === "duplicates" && (
-            <DuplicatesView
-              scanPath={path}
-              scanResult={result}
-              onSelectGroup={(group: DuplicateGroup) => setInspectorTarget({ kind: "duplicate-group", group })}
-              onMoveToTrash={(p: string) => handleMoveToTrash(p)}
-            />
-          )}
-          {result && !loading && activeTab === "file-types" && (
-            <FileTypesView
-              root={result}
-              onSelectExtension={(stats: FileTypeStats, topFiles: FileNode[]) =>
-                setInspectorTarget({ kind: "extension", stats, topFiles })
-              }
-            />
+          {result && (
+            <>
+              <div style={{ display: activeTab === "overview" && !loading ? "flex" : "none", flexDirection: "column", flex: 1, minHeight: 0 }}>
+                <OverviewPanel
+                  result={result}
+                  overviewSubView={overviewSubView}
+                  selectedPath={selectedPath}
+                  onSelect={setSelectedPath}
+                  overviewFilter={overviewFilter}
+                  searchQuery={treeSearch}
+                  onSearchQueryChange={setTreeSearch}
+                  drillRequest={drillRequest}
+                  onDrillRequestHandled={() => setDrillRequest(null)}
+                  onContextMenu={handleContextMenu}
+                  backRequest={treemapBackRequest}
+                />
+              </div>
+              <div style={{ display: activeTab === "large-files" && !loading ? "flex" : "none", flexDirection: "column", flex: 1, minHeight: 0 }}>
+                <LargeFilesView
+                  root={result}
+                  onSelect={(node: FileNode) => setInspectorTarget({ kind: "file", node, root: result })}
+                  onOpenInFinder={(p: string) => handleOpenInExplorer(p)}
+                  onMoveToTrash={(p: string) => handleMoveToTrash(p)}
+                />
+              </div>
+              <div style={{ display: activeTab === "duplicates" ? "flex" : "none", flexDirection: "column", flex: 1, minHeight: 0 }}>
+                <DuplicatesView
+                  scanPath={path}
+                  scanResult={result}
+                  onSelectGroup={(group: DuplicateGroup) => setInspectorTarget({ kind: "duplicate-group", group })}
+                  onMoveToTrash={(p: string) => handleMoveToTrash(p)}
+                />
+              </div>
+              <div style={{ display: activeTab === "file-types" && !loading ? "flex" : "none", flexDirection: "column", flex: 1, minHeight: 0 }}>
+                <FileTypesView
+                  root={result}
+                  onSelectExtension={(stats: FileTypeStats, topFiles: FileNode[]) =>
+                    setInspectorTarget({ kind: "extension", stats, topFiles })
+                  }
+                />
+              </div>
+            </>
           )}
         </div>
       }
