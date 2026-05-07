@@ -1,329 +1,327 @@
+// src/App.tsx
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { TreeNode } from "./TreeNode";
-import { TreemapView } from "./Treemap";
-import { ContextMenu } from "./ContextMenu";
-import { FileNode } from "./types";
-import { filterTree, countNodes, removeAndRecalc, replaceNode } from "./utils";
 
-type View = "treemap" | "tree";
+import { FileNode, ScanStats, AppTab, OverviewSubView, DuplicateGroup } from "./types";
+import type { FileTypeStats } from "./utils";
+import { filterTree, countNodes, removeAndRecalc, replaceNode } from "./utils";
+import { detectInsights } from "./insights";
+import { getInitialTheme, applyTheme, storeTheme, toggleTheme, Theme } from "./theme";
+
+import { Layout } from "./Layout";
+import { StatusBar } from "./StatusBar";
+import { Inspector, InspectorTarget } from "./Inspector";
+import { InsightStrip } from "./InsightStrip";
+import { TreemapView } from "./Treemap";
+import { TreeNode } from "./TreeNode";
+import { ContextMenu } from "./ContextMenu";
+import { LargeFilesView } from "./LargeFilesView";
+import { DuplicatesView } from "./DuplicatesView";
+import { FileTypesView } from "./FileTypesView";
 
 interface ScanProgress {
   count: number;
   current_path: string;
 }
 
-const S = {
-  app: {
-    display: "grid",
-    gridTemplateRows: "auto auto 1fr",
-    height: "100vh",
-    overflow: "hidden",
-    background: "#09090b",
-    color: "#e4e4e7",
-    fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-    padding: "18px 22px 18px 22px",
-    gap: "14px",
-    boxSizing: "border-box" as const,
-  },
-  header: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  logo: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-  },
-  logoIcon: {
-    width: "30px",
-    height: "30px",
-    background: "linear-gradient(135deg, #3b82f6 0%, #7c3aed 100%)",
-    borderRadius: "8px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "15px",
-    flexShrink: 0,
-  },
-  logoText: {
-    fontSize: "15px",
-    fontWeight: 700,
-    letterSpacing: "-0.02em",
-    color: "#fafafa",
-  },
-  viewToggle: {
-    display: "flex",
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.08)",
-    borderRadius: "9px",
-    padding: "3px",
-    gap: "2px",
-  },
-  scanRow: {
-    display: "flex",
-    gap: "10px",
-  },
-  input: {
-    flex: 1,
-    background: "rgba(255,255,255,0.05)",
-    border: "1px solid rgba(255,255,255,0.10)",
-    borderRadius: "10px",
-    padding: "9px 14px",
-    fontSize: "13px",
-    color: "#f4f4f5",
-    outline: "none",
-    fontFamily: "inherit",
-  },
-  button: (active: boolean) => ({
-    padding: "9px 22px",
-    borderRadius: "10px",
-    border: "none",
-    background: active ? "#3b82f6" : "rgba(59,130,246,0.45)",
-    color: "#fff",
-    fontSize: "13px",
-    fontWeight: 600,
-    cursor: active ? "pointer" : "not-allowed",
-    fontFamily: "inherit",
-    whiteSpace: "nowrap" as const,
-    flexShrink: 0,
-  }),
-  cancelButton: {
-    padding: "9px 18px",
-    borderRadius: "10px",
-    border: "1px solid rgba(239,68,68,0.35)",
-    background: "rgba(239,68,68,0.12)",
-    color: "#fca5a5",
-    fontSize: "13px",
-    fontWeight: 600,
-    cursor: "pointer",
-    fontFamily: "inherit",
-    whiteSpace: "nowrap" as const,
-    flexShrink: 0,
-  },
-  contentCell: {
-    minHeight: 0,
-    overflow: "hidden",
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "12px",
-  },
-  errorBox: {
-    background: "rgba(239,68,68,0.10)",
-    border: "1px solid rgba(239,68,68,0.25)",
-    borderRadius: "10px",
-    padding: "10px 14px",
-    fontSize: "13px",
-    color: "#fca5a5",
-    flexShrink: 0,
-  },
-  cancelledBox: {
-    background: "rgba(234,179,8,0.10)",
-    border: "1px solid rgba(234,179,8,0.25)",
-    borderRadius: "10px",
-    padding: "10px 14px",
-    fontSize: "13px",
-    color: "#fde047",
-    flexShrink: 0,
-  },
-  progressBox: {
-    background: "rgba(59,130,246,0.08)",
-    border: "1px solid rgba(59,130,246,0.20)",
-    borderRadius: "10px",
-    padding: "10px 14px",
-    fontSize: "12px",
-    color: "#93c5fd",
-    flexShrink: 0,
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-  },
-  spinner: {
-    width: "14px",
-    height: "14px",
-    border: "2px solid rgba(59,130,246,0.3)",
-    borderTopColor: "#3b82f6",
-    borderRadius: "50%",
-    flexShrink: 0,
-    animation: "spin 0.7s linear infinite",
-  },
-  progressText: {
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap" as const,
-  },
-  treeWrap: {
-    flex: 1,
-    minHeight: 0,
-    background: "rgba(255,255,255,0.03)",
-    border: "1px solid rgba(255,255,255,0.07)",
-    borderRadius: "10px",
-    padding: "8px",
-    overflow: "auto",
-  },
-  emptyState: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column" as const,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "12px",
-    color: "#52525b",
-  },
-  emptyIcon: {
-    fontSize: "48px",
-    lineHeight: 1,
-    opacity: 0.5,
-  },
-  emptyTitle: {
-    fontSize: "15px",
-    fontWeight: 600,
-    color: "#71717a",
-  },
-  emptyHint: {
-    fontSize: "12px",
-    color: "#3f3f46",
-  },
-  searchRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    flexShrink: 0,
-  },
-  searchInput: {
-    flex: 1,
-    background: "rgba(255,255,255,0.05)",
-    border: "1px solid rgba(255,255,255,0.10)",
-    borderRadius: "10px",
-    padding: "7px 14px",
-    fontSize: "13px",
-    color: "#f4f4f5",
-    outline: "none",
-    fontFamily: "inherit",
-  },
-  clearButton: {
-    padding: "7px 12px",
-    borderRadius: "10px",
-    border: "1px solid rgba(255,255,255,0.10)",
-    background: "rgba(255,255,255,0.06)",
-    color: "#a1a1aa",
-    fontSize: "13px",
-    cursor: "pointer",
-    fontFamily: "inherit",
-    flexShrink: 0,
-  },
-  matchCount: {
-    fontSize: "12px",
-    color: "#71717a",
-    flexShrink: 0,
-    whiteSpace: "nowrap" as const,
-  },
-  noMatches: {
-    flex: 1,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "13px",
-    color: "#52525b",
-  },
-  actionBar: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    padding: "8px 12px",
-    background: "rgba(59,130,246,0.06)",
-    border: "1px solid rgba(59,130,246,0.15)",
-    borderRadius: "10px",
-    flexShrink: 0,
-  },
-  actionPath: {
-    flex: 1,
-    fontSize: "12px",
-    color: "#71717a",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap" as const,
-  },
-  actionBtn: (color: string) => ({
-    padding: "5px 12px",
-    borderRadius: "7px",
-    border: `1px solid ${color}33`,
-    background: `${color}11`,
-    color: color,
-    fontSize: "12px",
-    fontWeight: 500,
-    cursor: "pointer",
-    fontFamily: "inherit",
-    flexShrink: 0,
-    whiteSpace: "nowrap" as const,
-  }),
-} as const;
+// ── Toolbar ──────────────────────────────────────────────────────────────────
 
-function ViewToggleBtn({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function Toolbar({
+  path, onPathChange, onScan, onCancel, loading, activeTab, overviewFilter,
+  onOverviewFilterChange,
+}: {
+  path: string; onPathChange: (p: string) => void; onScan: () => void;
+  onCancel: () => void; loading: boolean; activeTab: AppTab;
+  overviewFilter: string; onOverviewFilterChange: (v: string) => void;
+}) {
   return (
-    <button
-      onClick={onClick}
-      style={{
-        padding: "4px 14px",
-        borderRadius: "6px",
-        border: "none",
-        background: active ? "rgba(255,255,255,0.13)" : "transparent",
-        color: active ? "#f4f4f5" : "#71717a",
-        fontSize: "12px",
-        fontWeight: 500,
-        cursor: "pointer",
-      }}
-    >
-      {label}
-    </button>
+    <div style={{
+      height: 50, background: "var(--surface)", borderBottom: "1px solid var(--border)",
+      display: "flex", alignItems: "center", padding: "0 16px", gap: 10, flexShrink: 0,
+    }}>
+      <input
+        type="text"
+        value={path}
+        onChange={(e) => onPathChange(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && !loading && onScan()}
+        onFocus={(e) => (e.currentTarget.style.borderColor = "var(--accent)")}
+        onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border2)")}
+        placeholder="Directory path…"
+        disabled={loading}
+        spellCheck={false}
+        style={{
+          flex: 1, background: "var(--surface2)", border: "1px solid var(--border2)",
+          borderRadius: 8, padding: "7px 12px", fontSize: 13, color: "var(--text)",
+          outline: "none", fontFamily: "inherit",
+        }}
+      />
+      {activeTab === "overview" && (
+        <div style={{ position: "relative", display: "flex", alignItems: "center", flexShrink: 0 }}>
+          <input
+            type="text"
+            value={overviewFilter}
+            onChange={(e) => onOverviewFilterChange(e.target.value)}
+            onKeyDown={(e) => e.key === "Escape" && onOverviewFilterChange("")}
+            placeholder="Filter…"
+            spellCheck={false}
+            style={{
+              width: 150, background: "var(--surface2)", border: "1px solid var(--border2)",
+              borderRadius: 8, padding: "7px 30px 7px 12px", fontSize: 13,
+              color: "var(--text)", outline: "none", fontFamily: "inherit",
+            }}
+          />
+          {overviewFilter && (
+            <button
+              onClick={() => onOverviewFilterChange("")}
+              style={{
+                position: "absolute", right: 8, background: "none", border: "none",
+                color: "var(--text3)", cursor: "pointer", fontSize: 14, padding: 0, lineHeight: 1,
+              }}
+            >×</button>
+          )}
+        </div>
+      )}
+      <button
+        onClick={onScan}
+        disabled={loading}
+        style={{
+          padding: "7px 20px", borderRadius: 8, border: "none",
+          background: loading ? "rgba(99,102,241,0.45)" : "var(--accent)",
+          color: "#fff", fontSize: 13, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer",
+          fontFamily: "inherit", flexShrink: 0,
+        }}
+      >Scan</button>
+      {loading && (
+        <button
+          onClick={onCancel}
+          style={{
+            padding: "7px 14px", borderRadius: 8,
+            border: "1px solid rgba(248,113,113,0.35)", background: "rgba(248,113,113,0.12)",
+            color: "var(--danger)", fontSize: 13, fontWeight: 600, cursor: "pointer",
+            fontFamily: "inherit", flexShrink: 0,
+          }}
+        >Cancel</button>
+      )}
+    </div>
   );
 }
 
+// ── Nav Tabs ─────────────────────────────────────────────────────────────────
+
+function NavTabs({
+  activeTab, onTabChange, scanResult, overviewSubView, onOverviewSubViewChange,
+}: {
+  activeTab: AppTab; onTabChange: (t: AppTab) => void; scanResult: FileNode | null;
+  overviewSubView: OverviewSubView; onOverviewSubViewChange: (v: OverviewSubView) => void;
+}) {
+  const tabs: { id: AppTab; label: string }[] = [
+    { id: "overview",    label: "Overview" },
+    { id: "large-files", label: "Large Files" },
+    { id: "duplicates",  label: "Duplicates" },
+    { id: "file-types",  label: "File Types" },
+  ];
+
+  return (
+    <div style={{
+      height: 40, background: "var(--surface)", borderBottom: "1px solid var(--border)",
+      display: "flex", alignItems: "stretch", padding: "0 16px", gap: 2, flexShrink: 0,
+    }}>
+      {tabs.map(({ id, label }) => {
+        const isActive = activeTab === id;
+        return (
+          <button
+            key={id}
+            onClick={() => onTabChange(id)}
+            disabled={!scanResult && id !== "overview"}
+            style={{
+              padding: "0 14px", border: "none", background: "none",
+              borderBottom: isActive ? "2px solid var(--accent)" : "2px solid transparent",
+              color: isActive ? "var(--accent2)" : "var(--text3)",
+              fontSize: 12, fontWeight: 500, cursor: scanResult || id === "overview" ? "pointer" : "not-allowed",
+              fontFamily: "inherit", position: "relative", top: 1,
+              transition: "color 120ms",
+            }}
+          >{label}</button>
+        );
+      })}
+      {activeTab === "overview" && scanResult && (
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 2 }}>
+          {(["treemap", "tree"] as OverviewSubView[]).map((v) => (
+            <button
+              key={v}
+              onClick={() => onOverviewSubViewChange(v)}
+              style={{
+                padding: "3px 12px", borderRadius: 6, border: "none",
+                background: overviewSubView === v ? "rgba(255,255,255,0.10)" : "transparent",
+                color: overviewSubView === v ? "var(--text)" : "var(--text3)",
+                fontSize: 12, cursor: "pointer", fontFamily: "inherit",
+                textTransform: "capitalize",
+              }}
+            >{v}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Overview Panel ────────────────────────────────────────────────────────────
+
+function OverviewPanel({
+  result, overviewSubView, selectedPath, onSelect, overviewFilter, searchQuery,
+  onSearchQueryChange, drillRequest, onDrillRequestHandled, onContextMenu,
+}: {
+  result: FileNode; overviewSubView: OverviewSubView;
+  selectedPath: string | null; onSelect: (p: string | null) => void;
+  overviewFilter: string; searchQuery: string;
+  onSearchQueryChange: (q: string) => void;
+  drillRequest: string | null; onDrillRequestHandled: () => void;
+  onContextMenu: (e: React.MouseEvent, node: FileNode) => void;
+}) {
+  if (overviewSubView === "treemap") {
+    return (
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, padding: 12 }}>
+        <TreemapView
+          root={result}
+          selectedPath={selectedPath}
+          onSelect={onSelect}
+          searchQuery={overviewFilter}
+          drillRequest={drillRequest}
+          onDrillRequestHandled={onDrillRequestHandled}
+          onContextMenu={onContextMenu}
+        />
+      </div>
+    );
+  }
+
+  const displayTree = searchQuery ? filterTree(result, searchQuery) : result;
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, padding: "8px 12px", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => onSearchQueryChange(e.target.value)}
+          onKeyDown={(e) => e.key === "Escape" && onSearchQueryChange("")}
+          placeholder="Search by name…"
+          spellCheck={false}
+          style={{
+            flex: 1, background: "var(--surface2)", border: "1px solid var(--border2)",
+            borderRadius: 8, padding: "6px 12px", fontSize: 13, color: "var(--text)",
+            outline: "none", fontFamily: "inherit",
+          }}
+        />
+        {searchQuery && (
+          <button onClick={() => onSearchQueryChange("")}
+            style={{ background: "none", border: "none", color: "var(--text3)", cursor: "pointer", fontSize: 14 }}>
+            ×
+          </button>
+        )}
+        {searchQuery && displayTree && (
+          <span style={{ fontSize: 12, color: "var(--text3)", flexShrink: 0 }}>
+            {countNodes(displayTree).toLocaleString()} items
+          </span>
+        )}
+      </div>
+      {displayTree ? (
+        <div style={{
+          flex: 1, minHeight: 0, overflow: "auto",
+          background: "var(--surface2)", borderRadius: 8,
+          border: "1px solid var(--border)", padding: 8,
+        }}>
+          <TreeNode
+            node={displayTree}
+            depth={0}
+            selectedPath={selectedPath}
+            onSelect={onSelect}
+            searchQuery={searchQuery}
+          />
+        </div>
+      ) : (
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text3)", fontSize: 13 }}>
+          No matches for "{searchQuery}"
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
+
 export default function App() {
+  const [theme, setTheme] = useState<Theme>(() => getInitialTheme());
   const [path, setPath] = useState("/");
   const [result, setResult] = useState<FileNode | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cancelled, setCancelled] = useState(false);
   const [progress, setProgress] = useState<ScanProgress | null>(null);
-  const [selectedPath, setSelectedPath] = useState<string | null>(null);
-  const [view, setView] = useState<View>("treemap");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [scanStats, setScanStats] = useState<ScanStats | null>(null);
+  const [scanStart, setScanStart] = useState<number | null>(null);
+
+  const [activeTab, setActiveTab] = useState<AppTab>("overview");
+  const [overviewSubView, setOverviewSubView] = useState<OverviewSubView>("treemap");
+  const [overviewFilter, setOverviewFilter] = useState("");
+  const [treeSearch, setTreeSearch] = useState("");
   const [drillRequest, setDrillRequest] = useState<string | null>(null);
-  const [treemapSearch, setTreemapSearch] = useState("");
+
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [inspectorTarget, setInspectorTarget] = useState<InspectorTarget>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; node: FileNode } | null>(null);
 
-  const displayTree: FileNode | null = result
-    ? searchQuery
-      ? filterTree(result, searchQuery)
-      : result
-    : null;
+  useEffect(() => {
+    applyTheme(theme);
+    storeTheme(theme);
+  }, [theme]);
 
+  // Sync selectedPath → inspectorTarget (file/dir mode)
   const selectedNode = useCallback((): FileNode | null => {
     if (!result || !selectedPath) return null;
     function find(node: FileNode): FileNode | null {
       if (node.path === selectedPath) return node;
-      for (const child of node.children) {
-        const found = find(child);
-        if (found) return found;
-      }
+      for (const child of node.children) { const f = find(child); if (f) return f; }
       return null;
     }
     return find(result);
   }, [result, selectedPath])();
 
   useEffect(() => {
+    if (selectedNode && result) {
+      setInspectorTarget({ kind: "file", node: selectedNode, root: result });
+    } else if (!selectedPath) {
+      setInspectorTarget(null);
+    }
+  }, [selectedNode, selectedPath, result]);
+
+  useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" && loading) {
-        invoke("cancel_scan");
+      if (e.key === "Escape" && loading) { invoke("cancel_scan"); return; }
+      if (e.key === "Escape") { setTreeSearch(""); setOverviewFilter(""); return; }
+      if ((e.key === "Delete" || (e.metaKey && e.key === "Backspace")) && selectedPath) {
+        handleMoveToTrash(); return;
+      }
+      if (e.key === " " && selectedPath) { handleOpenInExplorer(); return; }
+      if (e.metaKey && e.key === "f") {
+        e.preventDefault();
+        if (activeTab === "overview" && overviewSubView === "treemap") {
+          (document.querySelector('input[placeholder="Filter…"]') as HTMLInputElement)?.focus();
+        } else if (activeTab === "overview") {
+          (document.querySelector('input[placeholder="Search by name…"]') as HTMLInputElement)?.focus();
+        }
+        return;
+      }
+      const tabKeys: Record<string, AppTab> = { "1": "overview", "2": "large-files", "3": "duplicates", "4": "file-types" };
+      if (tabKeys[e.key] && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const target = document.activeElement?.tagName;
+        if (target !== "INPUT" && target !== "TEXTAREA") setActiveTab(tabKeys[e.key]);
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [loading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, selectedPath, activeTab, overviewSubView]);
 
   async function handleScan(scanPath?: string) {
     const target = scanPath ?? path;
@@ -331,16 +329,19 @@ export default function App() {
     setLoading(true);
     setError(null);
     setCancelled(false);
+    setProgress(null);
+    setScanStats(null);
+    const started = Date.now();
+    setScanStart(started);
     if (!scanPath) {
       setResult(null);
       setSelectedPath(null);
+      setInspectorTarget(null);
+      setOverviewFilter("");
+      setTreeSearch("");
     }
-    setProgress(null);
 
-    const unlisten = await listen<ScanProgress>("scan_progress", (event) => {
-      setProgress(event.payload);
-    });
-
+    const unlisten = await listen<ScanProgress>("scan_progress", (ev) => setProgress(ev.payload));
     try {
       const data = await invoke<FileNode>("scan", { path: target });
       if (scanPath && result) {
@@ -348,256 +349,202 @@ export default function App() {
       } else {
         setResult(data);
         await getCurrentWindow().setTitle(`DirStat — ${target}`);
+        setScanStats({
+          totalSize: data.size,
+          fileCount: data.file_count,
+          folderCount: countFolders(data),
+          durationMs: Date.now() - started,
+        });
       }
     } catch (err) {
       const msg = String(err);
-      if (msg === "cancelled") {
-        setCancelled(true);
-      } else {
-        setError(msg);
-      }
+      if (msg === "cancelled") setCancelled(true);
+      else setError(msg);
     } finally {
       unlisten();
       setLoading(false);
       setProgress(null);
-      if (!scanPath) {
-        setSearchQuery("");
-        setTreemapSearch("");
-      }
     }
   }
 
-  async function handleCancel() {
-    await invoke("cancel_scan");
+  function countFolders(node: FileNode): number {
+    if (!node.is_dir) return 0;
+    return 1 + node.children.reduce((s, c) => s + countFolders(c), 0);
   }
 
-  async function handleOpenInExplorer() {
-    if (!selectedPath) return;
-    await invoke("open_in_explorer", { path: selectedPath });
+  async function handleOpenInExplorer(p?: string) {
+    const target = p ?? selectedPath;
+    if (!target) return;
+    await invoke("open_in_explorer", { path: target });
   }
 
-  async function handleMoveToTrash() {
-    if (!selectedPath || !result) return;
-    const confirmed = window.confirm(`Move "${selectedNode?.name}" to Trash?`);
-    if (!confirmed) return;
+  async function handleMoveToTrash(p?: string) {
+    const target = p ?? selectedPath;
+    if (!target || !result) return;
     try {
-      await invoke("move_to_trash", { path: selectedPath });
-      const newTree = removeAndRecalc(result, selectedPath);
+      await invoke("move_to_trash", { path: target });
+      const newTree = removeAndRecalc(result, target);
       setResult(newTree);
-      setSelectedPath(null);
-    } catch (err) {
-      setError(String(err));
-    }
+      if (target === selectedPath) { setSelectedPath(null); setInspectorTarget(null); }
+    } catch (err) { setError(String(err)); }
   }
 
-  async function handleRescan() {
-    if (!selectedPath || !selectedNode?.is_dir) return;
-    await handleScan(selectedPath);
+  async function handleRescan(p?: string) {
+    const target = p ?? selectedPath;
+    if (!target) return;
+    await handleScan(target);
   }
 
   function handleContextMenu(e: React.MouseEvent, node: FileNode) {
     e.preventDefault();
+    setSelectedPath(node.path);
     setContextMenu({ x: e.clientX, y: e.clientY, node });
   }
 
+  function handleInsightNavigate(navTarget: "overview" | "large-files", filter: string) {
+    if (navTarget === "overview") {
+      setActiveTab("overview");
+      if (overviewSubView === "treemap") setOverviewFilter(filter);
+      else setTreeSearch(filter);
+    } else {
+      setActiveTab("large-files");
+    }
+  }
+
+  const insights = result && !loading ? detectInsights(result) : [];
+
+  // suppress unused variable warning for scanStart
+  void scanStart;
+
   return (
-    <div style={S.app}>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-
-      {/* ── Header ── */}
-      <header style={S.header}>
-        <div style={S.logo}>
-          <div style={S.logoIcon}>📊</div>
-          <span style={S.logoText}>DirStat</span>
-        </div>
-        {result && !loading && (
-          <div style={S.viewToggle}>
-            <ViewToggleBtn label="Treemap" active={view === "treemap"} onClick={() => setView("treemap")} />
-            <ViewToggleBtn label="Tree"    active={view === "tree"}    onClick={() => setView("tree")} />
-          </div>
-        )}
-      </header>
-
-      {/* ── Scan bar ── */}
-      <div style={S.scanRow}>
-        <input
-          style={S.input}
-          type="text"
-          value={path}
-          onChange={e => setPath(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && !loading && handleScan()}
-          onFocus={e => (e.currentTarget.style.borderColor = "#3b82f6")}
-          onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)")}
-          placeholder="Directory path…"
-          disabled={loading}
-          spellCheck={false}
+    <>
+    <Layout
+      theme={theme}
+      onThemeToggle={() => setTheme((t) => toggleTheme(t))}
+      toolbar={
+        <Toolbar
+          path={path} onPathChange={setPath}
+          onScan={() => handleScan()} onCancel={() => invoke("cancel_scan")}
+          loading={loading} activeTab={activeTab}
+          overviewFilter={overviewFilter} onOverviewFilterChange={setOverviewFilter}
         />
-        {result && !loading && view === "treemap" && (
-          <div style={{ position: "relative", display: "flex", alignItems: "center", flexShrink: 0 }}>
-            <input
-              type="text"
-              value={treemapSearch}
-              onChange={e => setTreemapSearch(e.target.value)}
-              onKeyDown={e => e.key === "Escape" && setTreemapSearch("")}
-              onFocus={e => (e.currentTarget.style.borderColor = "#3b82f6")}
-              onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)")}
-              placeholder="Filter by name…"
-              spellCheck={false}
-              style={{
-                width: "150px",
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.10)",
-                borderRadius: "10px",
-                padding: "9px 32px 9px 12px",
-                fontSize: "13px",
-                color: "#f4f4f5",
-                outline: "none",
-                fontFamily: "inherit",
-              }}
-            />
-            {treemapSearch && (
-              <button
-                onClick={() => setTreemapSearch("")}
-                style={{
-                  position: "absolute",
-                  right: "8px",
-                  background: "none",
-                  border: "none",
-                  color: "#71717a",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  padding: 0,
-                  lineHeight: 1,
-                }}
-              >
-                ×
-              </button>
-            )}
-          </div>
-        )}
-        <button style={S.button(!loading)} onClick={() => handleScan()} disabled={loading}>
-          Scan
-        </button>
-        {loading && (
-          <button style={S.cancelButton} onClick={handleCancel}>
-            Cancel
-          </button>
-        )}
-      </div>
+      }
+      tabs={
+        <NavTabs
+          activeTab={activeTab} onTabChange={setActiveTab}
+          scanResult={result}
+          overviewSubView={overviewSubView} onOverviewSubViewChange={setOverviewSubView}
+        />
+      }
+      insightStrip={
+        insights.length > 0 ? (
+          <InsightStrip insights={insights} onNavigate={handleInsightNavigate} />
+        ) : null
+      }
+      leftPanel={
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+          {error && (
+            <div style={{
+              background: "rgba(248,113,113,0.10)", border: "1px solid rgba(248,113,113,0.25)",
+              borderRadius: 8, padding: "8px 14px", margin: "10px 12px 0",
+              fontSize: 13, color: "var(--danger)", flexShrink: 0,
+            }}>{error}</div>
+          )}
+          {cancelled && (
+            <div style={{
+              background: "rgba(251,191,36,0.10)", border: "1px solid rgba(251,191,36,0.25)",
+              borderRadius: 8, padding: "8px 14px", margin: "10px 12px 0",
+              fontSize: 13, color: "var(--warning)", flexShrink: 0,
+            }}>Scan cancelled.</div>
+          )}
+          {loading && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 10,
+              background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.20)",
+              borderRadius: 8, padding: "8px 14px", margin: "10px 12px 0",
+              fontSize: 12, color: "var(--accent2)", flexShrink: 0,
+            }}>
+              <div style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid rgba(99,102,241,0.3)", borderTopColor: "var(--accent)", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
+              {progress ? `Scanning ${progress.count.toLocaleString()} items — ${progress.current_path}` : "Starting scan…"}
+            </div>
+          )}
 
-      {/* ── Content ── */}
-      <div style={S.contentCell}>
-        {loading && progress && (
-          <div style={S.progressBox}>
-            <div style={S.spinner} />
-            <span style={S.progressText}>
-              Scanning {progress.count.toLocaleString()} items — {progress.current_path}
-            </span>
-          </div>
-        )}
-        {loading && !progress && (
-          <div style={S.progressBox}>
-            <div style={S.spinner} />
-            <span>Starting scan…</span>
-          </div>
-        )}
+          {!result && !loading && !error && !cancelled && (
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, color: "var(--text3)" }}>
+              <div style={{ fontSize: 48, lineHeight: 1, opacity: 0.4 }}>🗂</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text2)" }}>No directory scanned yet</div>
+              <div style={{ fontSize: 12 }}>Enter a path above and press Scan or ↵</div>
+            </div>
+          )}
 
-        {error && <div style={S.errorBox}>{error}</div>}
-        {cancelled && <div style={S.cancelledBox}>Scan cancelled.</div>}
-
-        {result && !loading && selectedPath && view === "tree" && (
-          <div style={S.actionBar}>
-            <span style={S.actionPath}>{selectedPath}</span>
-            <button style={S.actionBtn("#60a5fa")} onClick={handleOpenInExplorer}>
-              Show in Finder
-            </button>
-            {selectedNode?.is_dir && (
-              <button style={S.actionBtn("#34d399")} onClick={handleRescan}>
-                Rescan
-              </button>
-            )}
-            <button style={S.actionBtn("#f87171")} onClick={handleMoveToTrash}>
-              Move to Trash
-            </button>
-          </div>
-        )}
-
-        {result && !loading && view === "tree" && (
-          <div style={S.searchRow}>
-            <input
-              style={S.searchInput}
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              onKeyDown={e => e.key === "Escape" && setSearchQuery("")}
-              onFocus={e => (e.currentTarget.style.borderColor = "#3b82f6")}
-              onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)")}
-              placeholder="Search by name…"
-              spellCheck={false}
-            />
-            {searchQuery && (
-              <button style={S.clearButton} onClick={() => setSearchQuery("")}>×</button>
-            )}
-            {searchQuery && displayTree && (
-              <span style={S.matchCount}>
-                {countNodes(displayTree).toLocaleString()} items
-              </span>
-            )}
-          </div>
-        )}
-
-        {result ? (
-          view === "tree" ? (
-            displayTree ? (
-              <div style={S.treeWrap}>
-                <TreeNode
-                  node={displayTree}
-                  depth={0}
-                  selectedPath={selectedPath}
-                  onSelect={setSelectedPath}
-                  searchQuery={searchQuery}
-                />
-              </div>
-            ) : (
-              <div style={S.noMatches}>No matches for "{searchQuery}"</div>
-            )
-          ) : (
-            <TreemapView
-              root={result}
+          {result && !loading && activeTab === "overview" && (
+            <OverviewPanel
+              result={result}
+              overviewSubView={overviewSubView}
               selectedPath={selectedPath}
               onSelect={setSelectedPath}
-              searchQuery={treemapSearch}
+              overviewFilter={overviewFilter}
+              searchQuery={treeSearch}
+              onSearchQueryChange={setTreeSearch}
               drillRequest={drillRequest}
               onDrillRequestHandled={() => setDrillRequest(null)}
               onContextMenu={handleContextMenu}
             />
-          )
-        ) : (
-          !error && !cancelled && !loading && (
-            <div style={S.emptyState}>
-              <div style={S.emptyIcon}>🗂</div>
-              <div style={S.emptyTitle}>No directory scanned yet</div>
-              <div style={S.emptyHint}>Enter a path above and press Scan or ↵</div>
-            </div>
-          )
-        )}
-      </div>
-      {contextMenu && (
-        <ContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          node={contextMenu.node}
-          onOpenInFinder={() => { handleOpenInExplorer(); setContextMenu(null); }}
-          onRescan={() => { handleRescan(); setContextMenu(null); }}
-          onIgnore={() => {
-            if (result) setResult(removeAndRecalc(result, contextMenu.node.path));
-            setSelectedPath(null);
-            setContextMenu(null);
-          }}
-          onMoveToTrash={() => { handleMoveToTrash(); setContextMenu(null); }}
-          onClose={() => setContextMenu(null)}
+          )}
+          {result && !loading && activeTab === "large-files" && (
+            <LargeFilesView
+              root={result}
+              onSelect={(node: FileNode) => setInspectorTarget({ kind: "file", node, root: result })}
+              onOpenInFinder={(p: string) => handleOpenInExplorer(p)}
+              onMoveToTrash={(p: string) => handleMoveToTrash(p)}
+            />
+          )}
+          {activeTab === "duplicates" && (
+            <DuplicatesView
+              scanPath={path}
+              scanResult={result}
+              onSelectGroup={(group: DuplicateGroup) => setInspectorTarget({ kind: "duplicate-group", group })}
+              onMoveToTrash={(p: string) => handleMoveToTrash(p)}
+            />
+          )}
+          {result && !loading && activeTab === "file-types" && (
+            <FileTypesView
+              root={result}
+              onSelectExtension={(stats: FileTypeStats, topFiles: FileNode[]) =>
+                setInspectorTarget({ kind: "extension", stats, topFiles })
+              }
+            />
+          )}
+        </div>
+      }
+      inspector={
+        <Inspector
+          target={inspectorTarget}
+          onOpenInFinder={(p: string) => handleOpenInExplorer(p)}
+          onRescan={(p: string) => handleRescan(p)}
+          onMoveToTrash={(p: string) => handleMoveToTrash(p)}
         />
-      )}
-    </div>
+      }
+      statusBar={
+        <StatusBar loading={loading} scanStats={scanStats} scanResult={result} progress={progress} />
+      }
+    />
+    {contextMenu && (
+      <ContextMenu
+        x={contextMenu.x}
+        y={contextMenu.y}
+        node={contextMenu.node}
+        onOpenInFinder={() => { handleOpenInExplorer(contextMenu.node.path); setContextMenu(null); }}
+        onRescan={() => { handleRescan(contextMenu.node.path); setContextMenu(null); }}
+        onIgnore={() => {
+          if (result) setResult(removeAndRecalc(result, contextMenu.node.path));
+          setSelectedPath(null);
+          setContextMenu(null);
+        }}
+        onMoveToTrash={() => { handleMoveToTrash(contextMenu.node.path); setContextMenu(null); }}
+        onClose={() => setContextMenu(null)}
+      />
+    )}
+    </>
   );
 }
