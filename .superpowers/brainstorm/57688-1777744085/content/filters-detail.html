@@ -1,0 +1,99 @@
+<h2>Filter controls — name search + category legend</h2>
+<p class="subtitle">Full app mockup showing both filters in action simultaneously</p>
+
+<div class="mockup">
+  <div class="mockup-header">Full layout with filters active (video hidden, searching "node")</div>
+  <div class="mockup-body" style="padding:0;overflow:hidden;border-radius:0 0 8px 8px">
+
+    <!-- Top bar -->
+    <div style="background:#1a1a2e;padding:10px 12px;display:flex;gap:8px;align-items:center;border-bottom:1px solid #2a2a40">
+      <div style="flex:1;background:#0e0e1e;border:1px solid #444;border-radius:5px;padding:6px 10px;font-size:11px;color:#888">/Users/me/Projects/my-app</div>
+      <!-- Name search — compact, in top bar -->
+      <div style="background:#0e0e1e;border:1px solid #4a7ab5;border-radius:5px;padding:5px 9px;font-size:11px;color:#aad4ff;display:flex;align-items:center;gap:5px;width:130px">
+        <span style="opacity:.6;font-size:10px">🔍</span>
+        <span>node</span>
+        <span style="margin-left:auto;opacity:.5;cursor:pointer;font-size:10px">✕</span>
+      </div>
+      <div style="background:#3a6bab;border-radius:5px;padding:6px 12px;font-size:11px;color:#fff">Scan</div>
+      <div style="display:flex;gap:2px">
+        <div style="background:#2a3a50;border-radius:4px 0 0 4px;padding:5px 10px;font-size:10px;color:#7ab3ff;border:1px solid #4a7ab5">Treemap</div>
+        <div style="background:#1e1e30;border-radius:0 4px 4px 0;padding:5px 10px;font-size:10px;color:#666;border:1px solid #333">Tree</div>
+      </div>
+    </div>
+
+    <!-- Breadcrumbs -->
+    <div style="background:#141420;padding:5px 12px;font-size:10px;color:#666;border-bottom:1px solid #222;display:flex;gap:4px;align-items:center">
+      <span style="color:#7ab3ff;cursor:pointer">my-app</span>
+      <span>›</span>
+      <span style="color:#aaa">src</span>
+    </div>
+
+    <!-- Treemap area -->
+    <div style="background:#12121e;padding:8px;display:grid;grid-template-columns:1.8fr 1fr 1fr;grid-template-rows:120px 70px;gap:3px">
+      <!-- node_modules — highlighted (matches search) -->
+      <div style="background:#4e79a7;border-radius:4px;grid-row:1/3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;outline:2px solid rgba(255,255,255,0.4);outline-offset:-2px">
+        <span style="font-size:11px;color:#fff;font-weight:600">node_modules</span>
+        <span style="font-size:9px;color:rgba(255,255,255,.6)">4.2 GB</span>
+      </div>
+      <!-- dist -->
+      <div style="background:#f28e2b;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;opacity:.35">
+        <span style="font-size:10px;color:#fff">dist</span>
+        <span style="font-size:8px;color:rgba(255,255,255,.6)">890 MB</span>
+      </div>
+      <!-- src — matches "node"? no, dimmed -->
+      <div style="background:#59a14f;border-radius:4px;display:flex;align-items:center;justify-content:center;opacity:.35">
+        <span style="font-size:10px;color:#fff">src</span>
+      </div>
+      <!-- video — hidden by category filter -->
+      <div style="background:#333;border-radius:4px;display:flex;align-items:center;justify-content:center;opacity:.15;border:1px dashed #444">
+        <span style="font-size:9px;color:#555">video (hidden)</span>
+      </div>
+      <!-- cache -->
+      <div style="background:#76b7b2;border-radius:4px;display:flex;align-items:center;justify-content:center;opacity:.35">
+        <span style="font-size:9px;color:#fff">cache</span>
+      </div>
+    </div>
+
+    <!-- Interactive category legend -->
+    <div style="background:#141420;padding:7px 12px;border-top:1px solid #222;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.5px">Categories:</span>
+      <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:#ccc;cursor:pointer">
+        <span style="width:10px;height:10px;background:#4e79a7;border-radius:2px;display:inline-block"></span>Directories
+      </span>
+      <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:#ccc;cursor:pointer">
+        <span style="width:10px;height:10px;background:#76b7b2;border-radius:2px;display:inline-block"></span>Images
+      </span>
+      <!-- Video — toggled OFF -->
+      <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:#555;cursor:pointer;text-decoration:line-through" title="Click to show">
+        <span style="width:10px;height:10px;background:#e15759;border-radius:2px;display:inline-block;opacity:.3"></span>Video
+      </span>
+      <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:#ccc;cursor:pointer">
+        <span style="width:10px;height:10px;background:#4e9a6f;border-radius:2px;display:inline-block"></span>Audio
+      </span>
+      <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:#ccc;cursor:pointer">
+        <span style="width:10px;height:10px;background:#59a14f;border-radius:2px;display:inline-block"></span>Code
+      </span>
+      <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:#ccc;cursor:pointer">
+        <span style="width:10px;height:10px;background:#f28e2b;border-radius:2px;display:inline-block"></span>Documents
+      </span>
+      <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:#ccc;cursor:pointer">
+        <span style="width:10px;height:10px;background:#b07aa1;border-radius:2px;display:inline-block"></span>Archives
+      </span>
+      <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:#ccc;cursor:pointer">
+        <span style="width:10px;height:10px;background:#9c755f;border-radius:2px;display:inline-block"></span>Other
+      </span>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top:16px">
+  <h3>Filter behaviour</h3>
+  <ul>
+    <li><strong>Name search:</strong> non-matching tiles are dimmed to ~30% opacity (not hidden) so you keep spatial context of the full tree. Matching tiles stay full brightness.</li>
+    <li><strong>Category toggle:</strong> hidden categories disappear from the treemap entirely and remaining tiles reflow to fill the space (d3 re-layout). The swatch gets struck through.</li>
+    <li><strong>Both active simultaneously</strong> — they stack: category-filtered items are removed first, then name search dims within the remainder.</li>
+    <li><strong>Clear search:</strong> ✕ button in the search field. Reset all categories: double-click any legend item (or a small "Reset" link appears when any are hidden).</li>
+    <li>Filters are <strong>not persisted</strong> across rescans — reset when a new scan starts.</li>
+  </ul>
+</div>

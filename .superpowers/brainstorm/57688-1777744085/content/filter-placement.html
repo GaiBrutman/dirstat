@@ -1,0 +1,75 @@
+<h2>Where should the filter controls live?</h2>
+<p class="subtitle">The category legend already exists at the bottom as color swatches — we can repurpose it</p>
+
+<div class="cards">
+
+  <!-- Option A: Second toolbar row -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#12121e;padding:12px;display:flex;flex-direction:column;gap:6px;min-height:200px">
+      <!-- Row 1: path + scan -->
+      <div style="display:flex;gap:6px;align-items:center">
+        <div style="flex:1;background:#1e1e30;border:1px solid #444;border-radius:4px;padding:5px 8px;font-size:10px;color:#888">/Users/me/Projects</div>
+        <div style="background:#3a6bab;border-radius:4px;padding:5px 10px;font-size:10px;color:#fff">Scan</div>
+        <div style="background:#333;border-radius:4px;padding:5px 8px;font-size:10px;color:#aaa">Tree</div>
+      </div>
+      <!-- Row 2: search + category pills -->
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <div style="flex:1;max-width:180px;background:#1e1e30;border:1px solid #555;border-radius:4px;padding:4px 8px;font-size:10px;color:#666">🔍 Filter by name…</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          <span style="background:#4e79a7;border-radius:10px;padding:2px 8px;font-size:9px;color:#fff;cursor:pointer">Dirs</span>
+          <span style="background:#76b7b2;border-radius:10px;padding:2px 8px;font-size:9px;color:#fff;cursor:pointer;opacity:.4;text-decoration:line-through">Images</span>
+          <span style="background:#e15759;border-radius:10px;padding:2px 8px;font-size:9px;color:#fff;cursor:pointer">Video</span>
+          <span style="background:#59a14f;border-radius:10px;padding:2px 8px;font-size:9px;color:#fff;cursor:pointer">Code</span>
+          <span style="background:#f28e2b;border-radius:10px;padding:2px 8px;font-size:9px;color:#fff;cursor:pointer">Docs</span>
+          <span style="background:#b07aa1;border-radius:10px;padding:2px 8px;font-size:9px;color:#fff;cursor:pointer">Archive</span>
+        </div>
+      </div>
+      <!-- Treemap -->
+      <div style="flex:1;background:#1a1a2e;border-radius:4px;display:grid;grid-template-columns:2fr 1fr;grid-template-rows:2fr 1fr;gap:2px;padding:4px">
+        <div style="background:#4e79a7;border-radius:2px;opacity:.9"></div>
+        <div style="background:#f28e2b;border-radius:2px"></div>
+        <div style="background:#59a14f;border-radius:2px"></div>
+        <div style="background:#e15759;border-radius:2px"></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Second toolbar row</h3>
+      <p>Search input + category pills live in a dedicated filter row above the treemap. Always visible. The bottom legend goes away (pills replace it).</p>
+    </div>
+  </div>
+
+  <!-- Option B: Legend becomes interactive filter -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#12121e;padding:12px;display:flex;flex-direction:column;gap:6px;min-height:200px">
+      <!-- Row 1: path + scan + search -->
+      <div style="display:flex;gap:6px;align-items:center">
+        <div style="flex:1;background:#1e1e30;border:1px solid #444;border-radius:4px;padding:5px 8px;font-size:10px;color:#888">/Users/me/Projects</div>
+        <div style="flex:0 0 130px;background:#1e1e30;border:1px solid #555;border-radius:4px;padding:5px 8px;font-size:10px;color:#666">🔍 Name…</div>
+        <div style="background:#3a6bab;border-radius:4px;padding:5px 10px;font-size:10px;color:#fff">Scan</div>
+        <div style="background:#333;border-radius:4px;padding:5px 8px;font-size:10px;color:#aaa">Tree</div>
+      </div>
+      <!-- Treemap -->
+      <div style="flex:1;background:#1a1a2e;border-radius:4px;display:grid;grid-template-columns:2fr 1fr;grid-template-rows:2fr 1fr;gap:2px;padding:4px">
+        <div style="background:#4e79a7;border-radius:2px;opacity:.9"></div>
+        <div style="background:#f28e2b;border-radius:2px"></div>
+        <div style="background:#59a14f;border-radius:2px"></div>
+        <div style="background:#e15759;border-radius:2px;opacity:.3"></div>
+      </div>
+      <!-- Interactive legend at bottom -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:9px;color:#666">Click to hide:</span>
+        <span style="display:flex;align-items:center;gap:3px;font-size:9px;color:#fff;cursor:pointer"><span style="width:10px;height:10px;background:#4e79a7;border-radius:2px;display:inline-block"></span>Dir</span>
+        <span style="display:flex;align-items:center;gap:3px;font-size:9px;color:#555;cursor:pointer;text-decoration:line-through"><span style="width:10px;height:10px;background:#e15759;border-radius:2px;display:inline-block;opacity:.3"></span>Video</span>
+        <span style="display:flex;align-items:center;gap:3px;font-size:9px;color:#fff;cursor:pointer"><span style="width:10px;height:10px;background:#59a14f;border-radius:2px;display:inline-block"></span>Code</span>
+        <span style="display:flex;align-items:center;gap:3px;font-size:9px;color:#fff;cursor:pointer"><span style="width:10px;height:10px;background:#f28e2b;border-radius:2px;display:inline-block"></span>Docs</span>
+        <span style="display:flex;align-items:center;gap:3px;font-size:9px;color:#fff;cursor:pointer"><span style="width:10px;height:10px;background:#76b7b2;border-radius:2px;display:inline-block"></span>Images</span>
+        <span style="display:flex;align-items:center;gap:3px;font-size:9px;color:#fff;cursor:pointer"><span style="width:10px;height:10px;background:#b07aa1;border-radius:2px;display:inline-block"></span>Archive</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Clickable legend at bottom</h3>
+      <p>Name search moves into the top bar. The existing category legend becomes clickable toggles — click a color swatch to hide that category. Legend and filter are one unified element.</p>
+    </div>
+  </div>
+
+</div>

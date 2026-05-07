@@ -1,0 +1,30 @@
+<h2>What kind of filtering do you want in the treemap?</h2>
+<p class="subtitle">You can select multiple if you want more than one</p>
+
+<div class="options" data-multiselect>
+
+  <div class="option" data-choice="name" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Search by name</h3>
+      <p>A text input that highlights or dims tiles whose names don't match. Useful for finding a specific folder/file in a large tree. Already partially implemented in the codebase.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="category" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Filter by file type / category</h3>
+      <p>Toggle buttons for categories already used in the legend: images, video, audio, code, documents, archives, etc. Click to hide entire category from the treemap.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="size" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Filter by minimum size</h3>
+      <p>A slider or threshold input (e.g. "hide files smaller than 10 MB"). Focuses the treemap on the big offenders only. Useful when many small files clutter the view.</p>
+    </div>
+  </div>
+
+</div>

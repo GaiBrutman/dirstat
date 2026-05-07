@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test *)",
+      "Bash(npx tsc *)",
+      "Read(//Users/user/.claude/plugins/cache/claude-plugins-official/superpowers/**)",
+      "Read(//Users/user/.claude/**)",
+      "Bash(bash /Users/user/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/scripts/start-server.sh --project-dir /Users/user/Projects/Apps/dirstat)"
+    ]
+  }
+}
