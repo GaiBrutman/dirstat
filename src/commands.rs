@@ -4,6 +4,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 use crate::scan_state::ScanState;
 use crate::scanner::{scan_directory, FileNode};
+use crate::duplicates::{DuplicateGroup, find_duplicate_groups};
 use tauri_plugin_opener::OpenerExt;
 
 #[derive(Serialize, Clone)]
@@ -56,4 +57,14 @@ pub fn move_to_trash(path: String) -> Result<(), String> {
 #[tauri::command]
 pub fn open_in_explorer(path: String, app: AppHandle) -> Result<(), String> {
     app.opener().reveal_item_in_dir(&path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn find_duplicates(path: String) -> Result<Vec<DuplicateGroup>, String> {
+    if !Path::new(&path).exists() {
+        return Err(format!("Path does not exist: {path}"));
+    }
+    tauri::async_runtime::spawn_blocking(move || find_duplicate_groups(&path))
+        .await
+        .map_err(|e| e.to_string())?
 }

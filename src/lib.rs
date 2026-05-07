@@ -1,6 +1,7 @@
 mod scanner;
 mod commands;
 mod scan_state;
+mod duplicates;
 
 use scan_state::ScanState;
 
@@ -14,6 +15,7 @@ pub fn run() {
             commands::cancel_scan,
             commands::move_to_trash,
             commands::open_in_explorer,
+            commands::find_duplicates,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
