@@ -16,6 +16,7 @@ pub fn run() {
             commands::move_to_trash,
             commands::open_in_explorer,
             commands::find_duplicates,
+            commands::list_dir,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
