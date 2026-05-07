@@ -1,5 +1,5 @@
 // src/App.tsx
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -26,6 +26,147 @@ interface ScanProgress {
   current_path: string;
 }
 
+// ── Path autocomplete input ───────────────────────────────────────────────────
+
+function PathInput({
+  value, onChange, onScan, disabled,
+}: {
+  value: string; onChange: (v: string) => void; onScan: () => void; disabled: boolean;
+}) {
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [activeIdx, setActiveIdx] = useState(-1);
+  const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function fetchSuggestions(path: string) {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const results = await invoke<string[]>("list_dir", { path });
+        setSuggestions(results);
+        setActiveIdx(-1);
+        setOpen(results.length > 0);
+      } catch (err) {
+        console.error("list_dir failed:", err);
+        setSuggestions([]);
+        setOpen(false);
+      }
+    }, 120);
+  }
+
+  function handleChange(v: string) {
+    onChange(v);
+    fetchSuggestions(v);
+  }
+
+  function selectSuggestion(s: string) {
+    const val = s.endsWith("/") ? s : s + "/";
+    onChange(val);
+    fetchSuggestions(val);
+    setOpen(false);
+    inputRef.current?.focus();
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!open && suggestions.length > 0) setOpen(true);
+      setActiveIdx(i => Math.min(i + 1, suggestions.length - 1));
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx(i => Math.max(i - 1, -1));
+      return;
+    }
+    if ((e.key === "Tab" || e.key === "Enter") && open && activeIdx >= 0 && suggestions[activeIdx]) {
+      e.preventDefault();
+      selectSuggestion(suggestions[activeIdx]);
+      return;
+    }
+    if (e.key === "Escape") {
+      setOpen(false);
+      setActiveIdx(-1);
+      return;
+    }
+    if (e.key === "Enter" && !disabled) {
+      setOpen(false);
+      onScan();
+    }
+  }
+
+  useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      if (!wrapperRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, []);
+
+  const isDropdownOpen = open && suggestions.length > 0;
+
+  return (
+    <div ref={wrapperRef} style={{ flex: 1, position: "relative" }}>
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        onChange={e => handleChange(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onFocus={e => {
+          e.currentTarget.style.borderColor = "var(--accent)";
+          if (suggestions.length > 0) setOpen(true);
+          fetchSuggestions(value);
+        }}
+        onBlur={e => e.currentTarget.style.borderColor = "var(--border2)"}
+        placeholder="Directory path…"
+        disabled={disabled}
+        autoComplete="off"
+        spellCheck={false}
+        style={{
+          width: "100%", boxSizing: "border-box",
+          background: "var(--surface2)", border: "1px solid var(--border2)",
+          borderRadius: isDropdownOpen ? "8px 8px 0 0" : 8,
+          padding: "7px 12px", fontSize: 13, color: "var(--text)",
+          outline: "none", fontFamily: "inherit",
+        }}
+      />
+      {isDropdownOpen && (
+        <div style={{
+          position: "absolute", top: "100%", left: 0, right: 0, zIndex: 200,
+          background: "var(--surface2)", border: "1px solid var(--border2)",
+          borderTop: "none", borderRadius: "0 0 8px 8px",
+          maxHeight: 220, overflowY: "auto", boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+        }}>
+          {suggestions.map((s, i) => {
+            const name = s.replace(/\\/g, "/").split("/").filter(Boolean).pop() ?? s;
+            return (
+              <div
+                key={s}
+                onMouseDown={() => selectSuggestion(s)}
+                onMouseEnter={() => setActiveIdx(i)}
+                style={{
+                  padding: "5px 12px",
+                  background: i === activeIdx ? "rgba(99,102,241,0.18)" : "transparent",
+                  color: i === activeIdx ? "var(--accent2)" : "var(--text)",
+                  fontSize: 13, cursor: "pointer", fontFamily: "inherit",
+                  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                  display: "flex", alignItems: "center", gap: 7,
+                }}
+              >
+                <span style={{ opacity: 0.5, fontSize: 11 }}>⌂</span>
+                <span>{name}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Toolbar ──────────────────────────────────────────────────────────────────
 
 function Toolbar({
@@ -41,22 +182,7 @@ function Toolbar({
       height: 50, background: "var(--surface)", borderBottom: "1px solid var(--border)",
       display: "flex", alignItems: "center", padding: "0 16px", gap: 10, flexShrink: 0,
     }}>
-      <input
-        type="text"
-        value={path}
-        onChange={(e) => onPathChange(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && !loading && onScan()}
-        onFocus={(e) => (e.currentTarget.style.borderColor = "var(--accent)")}
-        onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border2)")}
-        placeholder="Directory path…"
-        disabled={loading}
-        spellCheck={false}
-        style={{
-          flex: 1, background: "var(--surface2)", border: "1px solid var(--border2)",
-          borderRadius: 8, padding: "7px 12px", fontSize: 13, color: "var(--text)",
-          outline: "none", fontFamily: "inherit",
-        }}
-      />
+      <PathInput value={path} onChange={onPathChange} onScan={onScan} disabled={loading} />
       {activeTab === "overview" && (
         <div style={{ position: "relative", display: "flex", alignItems: "center", flexShrink: 0 }}>
           <input
